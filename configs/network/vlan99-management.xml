@@ -1,0 +1,17 @@
+<network connections='1'>
+  <name>vlan99-management</name>
+  <uuid>3b853a44-d1e9-4e73-ad0c-12ab2d2296d4</uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr-nt' stp='on' delay='0'/>
+  <mac address='52:54:00:59:25:5b'/>
+  <ip address='192.168.99.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.99.100' end='192.168.99.200'/>
+    </dhcp>
+  </ip>
+</network>
+

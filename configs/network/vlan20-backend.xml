@@ -1,0 +1,17 @@
+<network connections='2'>
+  <name>vlan20-backend</name>
+  <uuid>3e3ebfd9-44f1-4eeb-a9b8-3e9f7a352e7a</uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr-nd' stp='on' delay='0'/>
+  <mac address='52:54:00:5b:5f:78'/>
+  <ip address='192.168.20.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.20.100' end='192.168.20.200'/>
+    </dhcp>
+  </ip>
+</network>
+
