@@ -1,37 +1,69 @@
-# infrastructure virtualisée sécurisée
+# Infrastructure virtualisée sécurisée
 
-projet d'infrastructure reseau avec segmentation vlan et architecture multi-tier
+Projet d'infrastructure réseau avec segmentation VLAN et architecture multi-tier.
 
-## contexte
+## Contexte
 
-j'ai monté ce lab pour apprendre les bases du routage inter-vlan, la segmentation reseau et la securisation d'infrastructure. au depart c'etait juste pour comprendre comment isoler des services entre eux mais c'est devenu un projet plus complet.
+J'ai monté ce lab pour apprendre les bases du routage inter-VLAN, la segmentation réseau et la sécurisation d'infrastructure. Au départ c'était juste pour comprendre comment isoler des services entre eux mais c'est devenu un projet plus complet.
 
-## architecture
+## Architecture
 
-![schema reseau](images/architecture.png)
+![Schema réseau](images/architecture.png)
 
-### composants
+### Composants
 
 - **bastion** (192.168.99.254) : routeur central + firewall
-- **web** (192.168.10.10) : serveur nginx en dmz
-- **app** (192.168.20.10) : api flask
-- **database** (192.168.30.10) : postgresql
+- **web** (192.168.10.10) : serveur nginx en DMZ
+- **app** (192.168.20.10) : API Flask
+- **database** (192.168.30.10) : PostgreSQL
 
-chaque vm est sur son propre vlan pour l'isolation. le bastion a une interface sur chaque vlan et fait le routage entre eux.
+Chaque VM est sur son propre VLAN pour l'isolation. Le bastion a une interface sur chaque VLAN et fait le routage entre eux.
 
-## ce que j'ai appris
+## Installation
 
-### vlans et segmentation
+Guide complet d'installation : [docs/installation.md](docs/installation.md)
 
-au debut j'ai essayé de laisser kvm gerer le routage automatiquement mais ça marchait pas. les bridges virtuels (virbr-*) ne routaient pas entre eux meme avec ip_forward activé.
+Résumé des étapes :
 
-la solution : donner plusieurs interfaces au bastion et configurer le routage manuellement. ça m'a fait comprendre comment un routeur fonctionne vraiment.
+1. Installer KVM/libvirt sur l'hôte
+2. Créer les 4 réseaux virtuels (voir `configs/network/`)
+3. Créer les 4 VMs avec Ubuntu Server
+4. Configurer le bastion avec 4 interfaces réseau
+5. Activer le routage IP et configurer le firewall
+6. Installer les services (nginx, flask, postgresql)
+7. Configurer les IPs statiques sur chaque VM
 
-### problemes rencontrés
+**Prérequis** :
+- 40GB d'espace disque
+- 8GB de RAM minimum
+- Processeur avec virtualisation activée
 
-**conflit d'adresses mac** : le plus gros probleme que j'ai eu. le bridge kvm (virbr-nd) avait la meme ip que l'interface du bastion (192.168.20.1). resultat : app envoyait les paquets au bridge au lieu du bastion.
+## Tests
 
-solution trouvée : 
+Tous les tests de validation sont documentés dans [docs/tests.md](docs/tests.md).
+
+Résumé des tests effectués :
+
+- **Connectivité réseau** : ping, traceroute, vérification du routage
+- **Services** : nginx, API Flask, PostgreSQL
+- **Sécurité** : SSH, fail2ban, firewall iptables
+- **Résilience** : redémarrage des services
+
+Tous les tests sont passés avec succès.
+
+## Ce que j'ai appris
+
+### VLANs et segmentation
+
+Au début j'ai essayé de laisser KVM gérer le routage automatiquement mais ça marchait pas. Les bridges virtuels (virbr-*) ne routaient pas entre eux même avec ip_forward activé.
+
+La solution : donner plusieurs interfaces au bastion et configurer le routage manuellement. Ça m'a fait comprendre comment un routeur fonctionne vraiment.
+
+### Problèmes rencontrés
+
+**Conflit d'adresses MAC** : le plus gros problème que j'ai eu. Le bridge KVM (virbr-nd) avait la même IP que l'interface du bastion (192.168.20.1). Résultat : app envoyait les paquets au bridge au lieu du bastion.
+
+Solution trouvée :
 ```bash
 # verifier les mac
 ip link show virbr-nd
@@ -41,15 +73,17 @@ sudo virsh domiflist bastion
 sudo arp -s 192.168.20.1 52:54:00:97:cc:1e
 ```
 
-sauf que ça a bloqué le terminal et cassé le reseau. j'ai du :
-1. acceder via console virt-manager
-2. supprimer l'entree arp (`sudo arp -d 192.168.20.1`)
-3. redemarrer ssh
-4. reconfigurer le reseau virtuel
+Sauf que ça a bloqué le terminal et cassé le réseau. J'ai dû :
+1. accéder via console virt-manager
+2. supprimer l'entrée ARP (`sudo arp -d 192.168.20.1`)
+3. redémarrer SSH
+4. reconfigurer le réseau virtuel
 
-**routage qui marchait pas** : pendant longtemps app pouvait pas ping database. les paquets arrivaient au bastion mais repartaient pas.
+Documentation complète : [docs/problemes/routage-intervlan.md](docs/problemes/routage-intervlan.md)
 
-ce qui manquait :
+**Routage qui marchait pas** : pendant longtemps app pouvait pas ping database. Les paquets arrivaient au bastion mais repartaient pas.
+
+Ce qui manquait :
 ```bash
 # activer le forwarding
 echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -58,19 +92,19 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 sysctl -w net.ipv4.conf.all.rp_filter=0
 ```
 
-**mode nat vs route dans libvirt** : au final j'ai du passer les reseaux virtuels de mode "nat" à mode "route" pour que libvirt arrete de bloquer le trafic inter-vlan.
+**Mode NAT vs route dans libvirt** : au final j'ai dû passer les réseaux virtuels de mode "nat" à mode "route" pour que libvirt arrête de bloquer le trafic inter-VLAN.
 ```bash
 sudo virsh net-edit vlan20-backend
 # changer <forward mode='nat'/> en <forward mode='route'/>
 ```
 
-## securité
+## Sécurité
 
-### ssh
+### SSH
 
-port 22 fermé, seulement 2222 avec clés :
+Port 22 fermé, seulement 2222 avec clés :
 ```bash
-# generation des clés
+# generation des cles
 ssh-keygen -t ed25519 -f ~/.ssh/bastion_key
 
 # copie sur le serveur
@@ -82,9 +116,9 @@ PasswordAuthentication no
 PermitRootLogin no
 ```
 
-### fail2ban
+### Fail2ban
 
-configuré pour bloquer apres 3 tentatives ratées :
+Configuré pour bloquer après 3 tentatives ratées :
 ```ini
 [sshd]
 enabled = true
@@ -94,11 +128,11 @@ bantime = 600
 findtime = 300
 ```
 
-j'ai testé en faisant expres des mauvais mots de passe et effectivement apres 3 essais l'ip est bannie (connection refused).
+J'ai testé en faisant exprès des mauvais mots de passe et effectivement après 3 essais l'IP est bannie (connection refused).
 
-### firewall
+### Firewall
 
-regles iptables sur le bastion :
+Règles iptables sur le bastion :
 ```bash
 # politique par defaut : bloquer
 iptables -P INPUT DROP
@@ -114,69 +148,20 @@ iptables -A FORWARD -s 192.168.10.0/24 -d 192.168.20.0/24 -p tcp --dport 3000 -j
 iptables -A FORWARD -s 192.168.20.0/24 -d 192.168.30.0/24 -p tcp --dport 5432 -j ACCEPT
 ```
 
-## tests effectués
+## Liens utiles
 
-### connectivité
-```bash
-# depuis bastion
-ping 192.168.10.10  # web
-ping 192.168.20.10  # app  
-ping 192.168.30.10  # db
+- [Libvirt networking](https://wiki.libvirt.org/page/VirtualNetworking)
+- [KVM networking modes](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-virtual_networking-network_configuration_with_virsh)
+- [Iptables routing](https://www.karlrupp.net/en/computer/nat_tutorial)
+- [Fail2ban config](https://www.fail2ban.org/wiki/index.php/Configuration)
+- [PostgreSQL authentication](https://www.postgresql.org/docs/current/auth-pg-hba-conf.html)
 
-# traceroute depuis app vers db
-traceroute 192.168.30.10
-# resultat : passe bien par 192.168.20.254 puis 192.168.30.254
-```
+## Reproductibilité
 
-### services
-```bash
-# web
-curl http://192.168.10.10
-# retourne la page html
+Pour recréer ce lab, suivre le guide d'installation complet : [docs/installation.md](docs/installation.md)
 
-# api
-curl http://192.168.20.10:3000/health
-# {"api":"ok","database":"ok"}
+## Notes
 
-curl http://192.168.20.10:3000/users
-# retourne les 3 users de la db
-```
-
-### securité
-```bash
-# test port 22 (doit etre fermé)
-nmap -p 22 192.168.99.254
-# filtered (timeout)
-
-# test ssh avec password (doit echouer)
-ssh -o PubkeyAuthentication=no admelmoh@192.168.99.254 -p 2222
-# permission denied
-
-# test fail2ban (3 tentatives)
-# apres 3 echecs : connection refused
-```
-
-## liens utiles
-
-- [libvirt networking](https://wiki.libvirt.org/page/VirtualNetworking)
-- [kvm networking modes](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide/sect-virtual_networking-network_configuration_with_virsh)
-- [iptables routing](https://www.karlrupp.net/en/computer/nat_tutorial)
-- [fail2ban config](https://www.fail2ban.org/wiki/index.php/Configuration)
-
-## reproductibilité
-
-pour recréer ce lab :
-
-1. installer kvm/libvirt
-2. créer les 4 reseaux virtuels (voir configs/network/)
-3. créer les 4 vms avec ubuntu server
-4. configurer le bastion avec plusieurs interfaces
-5. appliquer les scripts de configuration
-
-details complets dans `docs/installation.md`
-
-## notes
-
-- les vms utilisent ~40gb d'espace disque
-- 8gb de ram minimum (2gb par vm)
-- testé sur fedora 42 avec kvm
+- Les VMs utilisent ~40GB d'espace disque
+- 8GB de RAM minimum (2GB par VM)
+- Testé sur Fedora 42 avec KVM
