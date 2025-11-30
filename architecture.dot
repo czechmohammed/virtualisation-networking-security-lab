@@ -1,0 +1,52 @@
+digraph lab {
+    rankdir=TB;
+    node [shape=box, style=filled];
+    
+    // Internet et host
+    internet [label="Internet", fillcolor=lightblue];
+    fedora [label="Fedora Host\n10.188.34.230", fillcolor=lightgreen];
+    
+    // VLANs
+    subgraph cluster_management {
+        label="VLAN 99 - Management\n192.168.99.0/24";
+        style=filled;
+        fillcolor=lightyellow;
+        bastion_mgmt [label="Bastion\n192.168.99.10", fillcolor=orange];
+    }
+    
+    subgraph cluster_dmz {
+        label="VLAN 10 - DMZ\n192.168.10.0/24";
+        style=filled;
+        fillcolor=lightcoral;
+        bastion_dmz [label="Bastion GW\n192.168.10.254", fillcolor=orange];
+        web [label="Web\n192.168.10.10\nNginx", fillcolor=red];
+    }
+    
+    subgraph cluster_backend {
+        label="VLAN 20 - Backend\n192.168.20.0/24";
+        style=filled;
+        fillcolor=lightblue;
+        bastion_backend [label="Bastion GW\n192.168.20.254", fillcolor=orange];
+        app [label="App\n192.168.20.10\nFlask API", fillcolor=blue];
+    }
+    
+    subgraph cluster_data {
+        label="VLAN 30 - Data\n192.168.30.0/24";
+        style=filled;
+        fillcolor=lightgray;
+        bastion_data [label="Bastion GW\n192.168.30.254", fillcolor=orange];
+        database [label="Database\n192.168.30.10\nPostgreSQL", fillcolor=gray];
+    }
+    
+    // Connexions
+    internet -> fedora [label="WiFi"];
+    fedora -> bastion_mgmt [label="SSH:2222"];
+    bastion_mgmt -> bastion_dmz [style=dashed];
+    bastion_mgmt -> bastion_backend [style=dashed];
+    bastion_mgmt -> bastion_data [style=dashed];
+    bastion_dmz -> web;
+    bastion_backend -> app;
+    app -> bastion_backend [dir=both];
+    bastion_data -> database;
+    database -> bastion_data [dir=both];
+}
