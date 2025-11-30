@@ -1,0 +1,11 @@
+# pas mettre les vms elles-memes
+*.qcow2
+*.iso
+*.img
+
+# logs
+*.log
+
+# fichiers temporaires
+*~
+.*.swp
