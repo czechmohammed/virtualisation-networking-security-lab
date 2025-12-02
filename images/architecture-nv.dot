@@ -1,0 +1,66 @@
+digraph architecture {
+    rankdir=TB;
+    node [shape=box, style=filled];
+    
+    // Internet et hôte
+    internet [label="Internet", fillcolor=lightblue];
+    fedora [label="Fedora Host\n10.188.34.230\n\nRoutage iptables\nentre bridges", fillcolor=lightgreen];
+    
+    // VLAN Management
+    subgraph cluster_management {
+        label="VLAN 99 - Management\n192.168.99.0/24";
+        style=filled;
+        fillcolor=lightyellow;
+        bastion [label="Bastion\n192.168.99.10\nSSH:2222\n\nFirewall\nFail2ban", fillcolor=orange];
+    }
+    
+    // VLAN DMZ
+    subgraph cluster_dmz {
+        label="VLAN 10 - DMZ\n192.168.10.0/24";
+        style=filled;
+        fillcolor=lightpink;
+        bridge_dmz [label="Bridge virbr-mz\n192.168.10.1", fillcolor=yellow];
+        web [label="Web\n192.168.10.10\nNginx", fillcolor=red];
+    }
+    
+    // VLAN Backend
+    subgraph cluster_backend {
+        label="VLAN 20 - Backend\n192.168.20.0/24";
+        style=filled;
+        fillcolor=lightcyan;
+        bridge_backend [label="Bridge virbr-nd\n192.168.20.1", fillcolor=yellow];
+        app [label="App\n192.168.20.10\nFlask API", fillcolor=blue, fontcolor=white];
+    }
+    
+    // VLAN Data
+    subgraph cluster_data {
+        label="VLAN 30 - Data\n192.168.30.0/24";
+        style=filled;
+        fillcolor=lightgray;
+        bridge_data [label="Bridge virbr-ta\n192.168.30.1", fillcolor=yellow];
+        database [label="Database\n192.168.30.10\nPostgreSQL", fillcolor=gray];
+    }
+    
+    // Connexions d'administration (SSH via bastion)
+    internet -> fedora [label="WiFi"];
+    fedora -> bastion [label="SSH:2222\nAccès admin"];
+    
+    // Bastion administre toutes les VMs (lignes en pointillés pour SSH)
+    bastion -> web [style=dashed, color=darkgreen, label="SSH admin"];
+    bastion -> app [style=dashed, color=darkgreen, label="SSH admin"];
+    bastion -> database [style=dashed, color=darkgreen, label="SSH admin"];
+    
+    // Routage via Fedora entre les bridges (lignes en pointillés)
+    fedora -> bridge_dmz [style=dashed, color=purple, label="iptables\nrouting"];
+    fedora -> bridge_backend [style=dashed, color=purple, label="iptables\nrouting"];
+    fedora -> bridge_data [style=dashed, color=purple, label="iptables\nrouting"];
+    
+    // VMs dans leurs VLANs
+    bridge_dmz -> web;
+    bridge_backend -> app;
+    bridge_data -> database;
+    
+    // Flux applicatif (données)
+    web -> app [label="API calls\n(via routage)", color=blue, penwidth=2];
+    app -> database [label="SQL\n(via routage)", color=red, penwidth=2];
+}
